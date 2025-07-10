@@ -9,6 +9,15 @@ from .database import DatabaseManager, User
 
 class GoogleAuth:
     def __init__(self):
+        # Check if credentials are available before initializing database
+        self.client_id = os.getenv('GOOGLE_CLIENT_ID')
+        self.client_secret = os.getenv('GOOGLE_CLIENT_SECRET')
+        
+        if not self.client_id or not self.client_secret:
+            # Skip database initialization in guest mode
+            self.db = None
+            return
+            
         # These would normally come from Google Cloud Console
         # Get current domain from Replit environment
         replit_domain = os.getenv('REPLIT_DOMAINS')
@@ -19,15 +28,20 @@ class GoogleAuth:
             
         self.client_config = {
             "web": {
-                "client_id": os.getenv('GOOGLE_CLIENT_ID'),
-                "client_secret": os.getenv('GOOGLE_CLIENT_SECRET'),
+                "client_id": self.client_id,
+                "client_secret": self.client_secret,
                 "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                 "token_uri": "https://oauth2.googleapis.com/token",
                 "redirect_uris": [redirect_uri]
             }
         }
         self.scopes = ['openid', 'email', 'profile']
-        self.db = DatabaseManager()
+        
+        try:
+            self.db = DatabaseManager()
+        except Exception as e:
+            st.error(f"Database connection failed: {e}")
+            self.db = None
     
     def get_authorization_url(self) -> str:
         """Get Google OAuth authorization URL"""
@@ -127,6 +141,30 @@ def show_auth_ui():
     """Show authentication UI"""
     if 'authenticated' not in st.session_state:
         st.session_state.authenticated = False
+    if 'user_info' not in st.session_state:
+        st.session_state.user_info = None
+    if 'user_id' not in st.session_state:
+        st.session_state.user_id = 0
+
+    # Check if Google credentials are available
+    google_client_id = os.getenv('GOOGLE_CLIENT_ID')
+    google_client_secret = os.getenv('GOOGLE_CLIENT_SECRET')
+    
+    if not google_client_id or not google_client_secret:
+        # Guest mode - no authentication required
+        st.session_state.authenticated = True
+        st.session_state.user_id = 0
+        st.session_state.user_info = {
+            'name': 'Guest User',
+            'email': 'guest@example.com',
+            'profile_picture': None
+        }
+        
+        # Show guest mode info
+        with st.sidebar:
+            st.info("🔓 **Guest Mode**\n\nTo enable Google authentication, add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables.")
+        
+        return True
     
     if not st.session_state.authenticated:
         st.markdown("""

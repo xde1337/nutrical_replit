@@ -62,7 +62,9 @@ class DatabaseManager:
     def __init__(self):
         database_url = os.getenv('DATABASE_URL')
         if not database_url:
-            raise ValueError("DATABASE_URL environment variable not set")
+            # Use SQLite for local development/demo
+            database_url = 'sqlite:///nutrition_tracker.db'
+            print("⚠️  DATABASE_URL not set, using SQLite for demo purposes")
         
         self.engine = create_engine(database_url)
         Base.metadata.create_all(self.engine)
